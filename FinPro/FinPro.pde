@@ -6,7 +6,8 @@ import java.util.Arrays;
 final boolean MARKER_TRACKER_DEBUG = false;
 final boolean BALL_DEBUG = false;
 
-final boolean USE_SAMPLE_IMAGE = true;
+final boolean USE_SAMPLE_IMAGE = false;
+final boolean MANUAL=true;
 
 // We've found that some Windows build-in cameras (e.g. Microsoft Surface)
 // cannot work with processing.video.Capture.*.
@@ -23,7 +24,6 @@ OpenCV opencv;
 
 float fov = 45; // for camera capture
 
-// Marker codes to draw snowmans
 // final int[] towardsList = {0x1228, 0x0690};
 // int towards = 0x1228; // the target marker that the ball flies towards
 int towardscnt = 0;   // if ball reached, +1 to change the target
@@ -37,7 +37,11 @@ PVector lookVector;
 PVector pos;
 PVector posarr;
 int stop=0;
-float v=0;
+float anglez=0;
+float wz=0.1;
+float pos1=0;
+float v=1;
+int test=1;
 
 final int totalFrame = 30;
 final int totalFrameArr = 30;
@@ -99,22 +103,18 @@ void settings() {
 void setup() {
   background(0);
   smooth();
-  // frameRate(10);
 
   markerTracker = new MarkerTracker(kMarkerSize);
 
   if (!USE_DIRECTSHOW)
     cap.start();
 
-  // Added on Homework 6 (2020/6/10)
   // Align the camera coordinate system with the world coordinate system
-  // (cf. drawSnowman.pde)
   PMatrix3D cameraMat = ((PGraphicsOpenGL)g).camera;
   cameraMat.reset();
 
   keyState = new KeyState();
 
-  // Added on Homework 6 (2020/6/10)
   pos = new PVector(); 
   posarr =new PVector();
   markerPoseMap = new HashMap<Integer, PMatrix3D>();  // hashmap (code, pose)
@@ -165,133 +165,166 @@ void draw() {
     Set<Integer> codeset=markerPoseMap.keySet();
     Object[] codearr =codeset.toArray();
     Arrays.sort(codearr);
-    float mindis=100000;
-    int minMarkerID=1;
-
-    PMatrix3D pose_this=markerPoseMap.get(codearr[0]);
-    PMatrix3D pose_target=markerPoseMap.get(codearr[s]);
-    pushMatrix();
-        applyMatrix(pose_target);
-        noStroke();
-        fill(0, 0, 255);
-        box(0.01);
-    popMatrix();
-    //two Marker, then shot the arrow
-    if (s==1){
-      float angle = rotateToMarker(pose_this, pose_target);
-      PVector disVector = new PVector();
-
-      disVector.x = pose_target.m03 - pose_this.m03;
-      disVector.y = pose_target.m13 - pose_this.m13;
-      disVector.z = pose_target.m23 - pose_this.m23;
-      float dis = disVector.mag();
-      pos.x = frameCnt * dis / totalFrame;
-
+//MANUAL CONTROL TRIIGER,ACHER,TARGET
+    if(s==-1);
+    else if(s==0){//one Marker stand
+      PMatrix3D pose_this=markerPoseMap.get(codearr[0]);
+      archer(pose_this,160.5);
+    }
+    else{
+      if (MANUAL){
+        PMatrix3D pose_this=markerPoseMap.get(codearr[0]);
+        PMatrix3D pose_target=markerPoseMap.get(codearr[s]);
+        PMatrix3D pose_trigger=markerPoseMap.get(codearr[1]);
+        float diss=distanceM(pose_trigger,pose_this);
+        //target
+        pushMatrix();
+          applyMatrix(pose_target);
+          noStroke();
+          fill(0, 0, 255);
+          box(0.01);
+        popMatrix();
+        //trigger
+        pushMatrix();
+        applyMatrix(pose_trigger);
+          noStroke();
+          fill(255, 0, 0);
+          sphere(0.005);
+        popMatrix();
+        //control if dis between archer and trigger<0.1 then shot the arrow
+        if(diss<0.1){
           pushMatrix();
+            applyMatrix(pose_this);
+            rotateZ(160.5);
+            scale(0.001,0.001, 0.001);
+            rotateX(180.5);
+            shape(man);
+            translate(-pos1, 0, 0);
+            noStroke();
+            fill(123, 123, 0);
+            arrow();
+          popMatrix();
+          pos1+=v;
+        }
+        else{
+          archer(pose_this,anglez);
+            anglez+=wz;
+        }
+      }else{
+        PMatrix3D pose_this=markerPoseMap.get(codearr[0]);
+        PMatrix3D pose_target=markerPoseMap.get(codearr[s]);
+        pushMatrix();
             applyMatrix(pose_target);
+            noStroke();
+            fill(0, 0, 255);
+            box(0.01);
+        popMatrix();
+        //two Marker, then shot the arrow
+        if (s==1){
+          float angle = rotateToMarker(pose_this, pose_target);
+          PVector disVector = new PVector();
+          disVector.x = pose_target.m03 - pose_this.m03;
+          disVector.y = pose_target.m13 - pose_this.m13;
+          disVector.z = pose_target.m23 - pose_this.m23;
+          float dis = disVector.mag();
+          pos.x = frameCnt * dis / totalFrame;
+          pushMatrix();
+            applyMatrix(pose_this);
             rotateZ(angle);
             rotateZ(160.5);
             scale(0.001,0.001, 0.001);
             rotateX(180.5);
             shape(man);
-          translate(pos.x, pos.y, pos.z);
-          noStroke();
-          fill(123, 123, 0);
-          arrow();
+            translate(-1000*pos.x, pos.y, pos.z);
+            noStroke();
+            fill(123, 123, 0);
+            arrow();
           popMatrix();
           frameCnt++;
-        if (frameCnt == totalFrameArr) {
-          pos = new PVector();
-          frameCnt = 0;
-        }
-    }// more than 3 markers,find the most close Marker to target, then move to it and shot the arrow
-    else{
-      for(int i=1;i<s;i++){
-          PMatrix3D p=markerPoseMap.get(codearr[i]);
-          PVector v = new PVector();
-          v.x = p.m03 - pose_this.m03;
-          v.y = p.m13 - pose_this.m13;
-          v.z = p.m23 - pose_this.m23;
-          float pLen = v.mag();
-          if(pLen<mindis){
-            mindis=pLen;
-            minMarkerID=i;
+          if (frameCnt == totalFrameArr) {
+                pos = new PVector();
+                frameCnt = 0;
+              }
+          }// more than 3 markers,find the most close Marker to target, then move to it and shot the arrow
+        else{
+          //find max ID and min ID marker
+          float mindis=100000;
+          int minMarkerID=1;
+          for(int i=1;i<s;i++){
+              PMatrix3D p=markerPoseMap.get(codearr[i]);
+              PVector v = new PVector();
+              v.x = p.m03 - pose_this.m03;
+              v.y = p.m13 - pose_this.m13;
+              v.z = p.m23 - pose_this.m23;
+              float pLen = v.mag();
+              if(pLen<mindis){
+                mindis=pLen;
+                minMarkerID=i;
+              }
           }
+          PMatrix3D pose_dest=markerPoseMap.get(codearr[minMarkerID]);
+
+          float angle = rotateToMarker(pose_this, pose_dest);
+          float dis=distanceM(pose_dest,pose_this);
+          float angle1 = rotateToMarker(pose_dest, pose_target);
+          float dArr=distanceM(pose_dest,pose_target);
+
+          if(stop==0){
+            pos.x = frameCnt * dis / totalFrame;
+            //pos.z = disVector.z*frameCnt;
+            pushMatrix();
+              applyMatrix(pose_this);
+              rotateZ(angle);
+              rotateZ(160.3);
+              translate(-pos.x, pos.y, pos.z);
+              scale(0.001,0.001, 0.001);
+              rotateX(180.5);
+              shape(man);
+              noStroke();
+              fill(123, 123, 0);
+              arrow();
+            popMatrix();
+            frameCnt++;
+            if (frameCnt == totalFrame) {
+              pos = new PVector();
+              frameCnt = 0;
+              stop=1;
+            }
+          }
+          else{
+            posarr.x = frameArr * dArr / totalFrameArr;
+            //float ang= frameArr * anglez / totalFrameArr;
+              pushMatrix();
+                applyMatrix(pose_dest);
+                rotateZ(angle1);
+                rotateZ(160.5);
+                scale(0.001,0.001, 0.001);
+                rotateX(180.5);
+                shape(man);
+                translate(-1000*posarr.x, posarr.y, posarr.z);
+                noStroke();
+                fill(123, 123, 0);
+                arrow();
+              popMatrix();
+              frameArr++;
+            if (frameArr == totalFrameArr) {
+              posarr = new PVector();
+              frameArr = 0;
+              stop=0;
+            }
+          }      
+        }        
       }
-      PMatrix3D pose_dest=markerPoseMap.get(codearr[minMarkerID]);
-
-      float angle = rotateToMarker(pose_this, pose_dest);
-      PVector disVector = new PVector();
-      float angle1 = rotateToMarker(pose_dest, pose_target);
-      PVector disarr = new PVector();
-
-      disVector.x = pose_dest.m03 - pose_this.m03;
-      disVector.y = pose_dest.m13 - pose_this.m13;
-      disVector.z = pose_dest.m23 - pose_this.m23;
-      float dis = disVector.mag();
-      disarr.x = pose_target.m03 - pose_dest.m03;
-      disarr.y = pose_target.m13 - pose_dest.m13;
-      disarr.z = pose_target.m23 - pose_dest.m23;
-      float dArr = disarr.mag();
-
-      if(stop==0){
-        pos.x = frameCnt * dis / totalFrame;
-        //pos.z = disVector.z*frameCnt;
-        pushMatrix();
-          applyMatrix(pose_this);
-          rotateZ(angle);
-          rotateZ(160.3);
-          translate(-pos.x, pos.y, pos.z);
-          scale(0.001,0.001, 0.001);
-          rotateX(180.5);
-          shape(man);
-          noStroke();
-          fill(123, 123, 0);
-          arrow();
-        popMatrix();
-      frameCnt++;
-        if (frameCnt == totalFrame) {
-          pos = new PVector();
-          frameCnt = 0;
-          stop=1;
-        }      
-      }
-      else{
-        posarr.x = frameArr * dArr / totalFrameArr;
-        //float ang= frameArr * anglez / totalFrameArr;
-          pushMatrix();
-            applyMatrix(pose_dest);
-            rotateZ(angle1);
-            rotateZ(160.5);
-            scale(0.001,0.001, 0.001);
-            rotateX(180.5);
-            shape(man);
-          //translate(-posarr.x, posarr.y, posarr.z); don't move ???why???
-          translate(-v, posarr.y, posarr.z);
-          noStroke();
-          fill(123, 123, 0);
-          arrow();
-          popMatrix();
-          frameArr++;
-          v++;
-        if (frameArr == totalFrameArr) {
-          posarr = new PVector();
-          frameArr = 0;
-          stop=0;
-          v=0;
-        }
-      }      
     }
 
-
-      noFill();
-      strokeWeight(3);
-      stroke(255, 0, 0);
-      line(0, 0, 0, 0.02, 0, 0); // draw x-axis
-      stroke(0, 255, 0);
-      line(0, 0, 0, 0, 0.02, 0); // draw y-axis
-      stroke(0, 0, 255);
-      line(0, 0, 0, 0, 0, 0.02); // draw z-axis
+  noFill();
+  strokeWeight(3);
+  stroke(255, 0, 0);
+  line(0, 0, 0, 0.02, 0, 0); // draw x-axis
+  stroke(0, 255, 0);
+  line(0, 0, 0, 0, 0.02, 0); // draw y-axis
+  stroke(0, 0, 255);
+  line(0, 0, 0, 0, 0, 0.02); // draw z-axis
 
   noLights();
   keyState.getKeyEvent();
