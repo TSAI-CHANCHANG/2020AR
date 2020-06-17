@@ -172,7 +172,7 @@ void draw() {
       archer(pose_this,160.5);
     }
     else{
-      if (MANUAL){
+      if (MANUAL){//if we have only 2 markers then the target will also be trigger
         PMatrix3D pose_this=markerPoseMap.get(codearr[0]);
         PMatrix3D pose_target=markerPoseMap.get(codearr[s]);
         PMatrix3D pose_trigger=markerPoseMap.get(codearr[1]);
