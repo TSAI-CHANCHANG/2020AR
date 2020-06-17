@@ -60,10 +60,18 @@ void manual_control(PMatrix3D pose_this,PMatrix3D pose_target,PMatrix3D pose_tri
  }
 
  float distanceM(PMatrix3D pose_dest,PMatrix3D pose_this){
-     PVector disVector = new PVector();
+    PVector disVector = new PVector();
     disVector.x = pose_dest.m03 - pose_this.m03;
     disVector.y = pose_dest.m13 - pose_this.m13;
     disVector.z = pose_dest.m23 - pose_this.m23;
     float dis = disVector.mag();
     return dis;
+ }
+
+ float angle_dest_this(PMatrix3D pose_dest,PMatrix3D pose_this)
+ {
+    float x_distance = pose_dest.m03 - pose_this.m03;
+    float y_distance = pose_dest.m13 - pose_this.m13;
+    float angle_radian = atan2(y_distance, x_distance);
+    return angle_radian;
  }

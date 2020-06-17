@@ -40,7 +40,8 @@ int stop=0;
 float anglez=0;
 float wz=0.1;
 float pos1=0;
-float v=1;
+PMatrix3D pose_target_last_frame = null;
+float v=5;
 int test=1;
 
 final int totalFrame = 30;
@@ -177,6 +178,19 @@ void draw() {
         PMatrix3D pose_target=markerPoseMap.get(codearr[s]);
         PMatrix3D pose_trigger=markerPoseMap.get(codearr[1]);
         float diss=distanceM(pose_trigger,pose_this);
+        float distance_this_target = distanceM(pose_this, pose_target);
+        if(pose_target_last_frame == null)
+          pose_target_last_frame = pose_target;
+        float distance_target_move = distanceM(pose_target, pose_target_last_frame);
+        pose_target_last_frame = pose_target;
+        if(distance_target_move > 0.1)
+        {
+          pos1 = 0;
+        }
+        if (pos1 > 200)
+        {
+          pos1 = 0;
+        }
         //target
         pushMatrix();
           applyMatrix(pose_target);
@@ -193,9 +207,12 @@ void draw() {
         popMatrix();
         //control if dis between archer and trigger<0.1 then shot the arrow
         if(diss<0.1){
+          float angle = angle_dest_this(pose_this, pose_target);
+          //println(angle);
           pushMatrix();
             applyMatrix(pose_this);
-            rotateZ(160.5);
+            //rotateZ(angle);
+            rotateZ(180*3.14/180);
             scale(0.001,0.001, 0.001);
             rotateX(180.5);
             shape(man);
