@@ -26,12 +26,6 @@ float fov = 45; // for camera capture
 
 // final int[] towardsList = {0x1228, 0x0690};
 // int towards = 0x1228; // the target marker that the ball flies towards
-int towardscnt = 0;   // if ball reached, +1 to change the target
-
-final int[] towardsList = {0x005A, 0x0272};
-int towards = 0x005A;
-
-final float GA = 9.80665;
 
 PVector lookVector;
 PVector pos;
@@ -40,8 +34,7 @@ int stop=0;
 float anglez=0;
 float wz=0.1;
 float pos1=0;
-PMatrix3D pose_target_last_frame = null;
-float v=5;
+float v=1;
 int test=1;
 
 final int totalFrame = 30;
@@ -49,6 +42,7 @@ final int totalFrameArr = 30;
 final float snowmanSize = 0.020;
 int frameCnt = 0;
 int frameArr = 0;
+int frameCnt2 = 0;
 
 HashMap<Integer, PMatrix3D> markerPoseMap;
 
@@ -167,67 +161,19 @@ void draw() {
     Object[] codearr =codeset.toArray();
     Arrays.sort(codearr);
 //MANUAL CONTROL TRIIGER,ACHER,TARGET
-    if(s==-1);
+    if(s==-1){
+      frameCnt=0;
+      frameArr=0;
+      frameCnt2=0;
+    }
     else if(s==0){//one Marker stand
+      frameCnt=0;
+      frameArr=0;
+      frameCnt2=0;
       PMatrix3D pose_this=markerPoseMap.get(codearr[0]);
       archer(pose_this,160.5);
     }
     else{
-      if (MANUAL){//if we have only 2 markers then the target will also be trigger
-        PMatrix3D pose_this=markerPoseMap.get(codearr[0]);
-        PMatrix3D pose_target=markerPoseMap.get(codearr[s]);
-        PMatrix3D pose_trigger=markerPoseMap.get(codearr[1]);
-        float diss=distanceM(pose_trigger,pose_this);
-        float distance_this_target = distanceM(pose_this, pose_target);
-        if(pose_target_last_frame == null)
-          pose_target_last_frame = pose_target;
-        float distance_target_move = distanceM(pose_target, pose_target_last_frame);
-        pose_target_last_frame = pose_target;
-        if(distance_target_move > 0.1)
-        {
-          pos1 = 0;
-        }
-        if (pos1 > 200)
-        {
-          pos1 = 0;
-        }
-        //target
-        pushMatrix();
-          applyMatrix(pose_target);
-          noStroke();
-          fill(0, 0, 255);
-          box(0.01);
-        popMatrix();
-        //trigger
-        pushMatrix();
-        applyMatrix(pose_trigger);
-          noStroke();
-          fill(255, 0, 0);
-          sphere(0.005);
-        popMatrix();
-        //control if dis between archer and trigger<0.1 then shot the arrow
-        if(diss<0.1){
-          float angle = angle_dest_this(pose_this, pose_target);
-          //println(angle);
-          pushMatrix();
-            applyMatrix(pose_this);
-            //rotateZ(angle);
-            rotateZ(180*3.14/180);
-            scale(0.001,0.001, 0.001);
-            rotateX(180.5);
-            shape(man);
-            translate(-pos1, 0, 0);
-            noStroke();
-            fill(123, 123, 0);
-            arrow();
-          popMatrix();
-          pos1+=v;
-        }
-        else{
-          archer(pose_this,anglez);
-            anglez+=wz;
-        }
-      }else{
         PMatrix3D pose_this=markerPoseMap.get(codearr[0]);
         PMatrix3D pose_target=markerPoseMap.get(codearr[s]);
         pushMatrix();
@@ -238,13 +184,11 @@ void draw() {
         popMatrix();
         //two Marker, then shot the arrow
         if (s==1){
+          frameCnt=0;
+          frameArr=0;
           float angle = rotateToMarker(pose_this, pose_target);
-          PVector disVector = new PVector();
-          disVector.x = pose_target.m03 - pose_this.m03;
-          disVector.y = pose_target.m13 - pose_this.m13;
-          disVector.z = pose_target.m23 - pose_this.m23;
-          float dis = disVector.mag();
-          pos.x = frameCnt * dis / totalFrame;
+          float dis=distanceM(pose_target,pose_this);
+          pos.x = frameCnt2 * dis / totalFrame;
           pushMatrix();
             applyMatrix(pose_this);
             rotateZ(angle);
@@ -257,81 +201,122 @@ void draw() {
             fill(123, 123, 0);
             arrow();
           popMatrix();
-          frameCnt++;
-          if (frameCnt == totalFrameArr) {
-                pos = new PVector();
-                frameCnt = 0;
-              }
-          }// more than 3 markers,find the most close Marker to target, then move to it and shot the arrow
+          frameCnt2++;
+          if (frameCnt2 == totalFrameArr) {
+            pos = new PVector();
+            frameCnt2 = 0;
+          }
+        }// more than 3 markers,find the most close Marker to target, then move to it and shot the arrow
         else{
-          //find max ID and min ID marker
-          float mindis=100000;
-          int minMarkerID=1;
-          for(int i=1;i<s;i++){
-              PMatrix3D p=markerPoseMap.get(codearr[i]);
-              PVector v = new PVector();
-              v.x = p.m03 - pose_this.m03;
-              v.y = p.m13 - pose_this.m13;
-              v.z = p.m23 - pose_this.m23;
-              float pLen = v.mag();
-              if(pLen<mindis){
-                mindis=pLen;
-                minMarkerID=i;
-              }
-          }
-          PMatrix3D pose_dest=markerPoseMap.get(codearr[minMarkerID]);
-
-          float angle = rotateToMarker(pose_this, pose_dest);
-          float dis=distanceM(pose_dest,pose_this);
-          float angle1 = rotateToMarker(pose_dest, pose_target);
-          float dArr=distanceM(pose_dest,pose_target);
-
-          if(stop==0){
-            pos.x = frameCnt * dis / totalFrame;
-            //pos.z = disVector.z*frameCnt;
+          frameCnt2 = 0;
+          if (MANUAL){
+            PMatrix3D pose_trigger=markerPoseMap.get(codearr[1]);
+            float diss=distanceM(pose_trigger,pose_this);
+            //target
             pushMatrix();
-              applyMatrix(pose_this);
-              rotateZ(angle);
-              rotateZ(160.3);
-              translate(-pos.x, pos.y, pos.z);
-              scale(0.001,0.001, 0.001);
-              rotateX(180.5);
-              shape(man);
+              applyMatrix(pose_target);
               noStroke();
-              fill(123, 123, 0);
-              arrow();
+              fill(0, 0, 255);
+              box(0.01);
             popMatrix();
-            frameCnt++;
-            if (frameCnt == totalFrame) {
-              pos = new PVector();
-              frameCnt = 0;
-              stop=1;
-            }
-          }
-          else{
-            posarr.x = frameArr * dArr / totalFrameArr;
-            //float ang= frameArr * anglez / totalFrameArr;
+            //trigger
+            pushMatrix();
+            applyMatrix(pose_trigger);
+              noStroke();
+              fill(255, 0, 0);
+              sphere(0.005);
+            popMatrix();
+            //control if dis between archer and trigger<0.1 then shot the arrow
+            if(diss<0.05){
               pushMatrix();
-                applyMatrix(pose_dest);
-                rotateZ(angle1);
+                applyMatrix(pose_this);
+                rotateZ(-anglez);
                 rotateZ(160.5);
                 scale(0.001,0.001, 0.001);
                 rotateX(180.5);
                 shape(man);
-                translate(-1000*posarr.x, posarr.y, posarr.z);
+                translate(-pos1, 0, 0);
                 noStroke();
                 fill(123, 123, 0);
                 arrow();
               popMatrix();
-              frameArr++;
-            if (frameArr == totalFrameArr) {
-              posarr = new PVector();
-              frameArr = 0;
-              stop=0;
+              pos1+=v;
             }
-          }      
-        }        
-      }
+            else{
+              archer(pose_this,anglez);
+              anglez+=wz;
+              pos1=0;
+            }
+          }
+          else{
+              //find max ID and min ID marker
+              float mindis=100000;
+              int minMarkerID=1;
+              for(int i=1;i<s;i++){
+                  PMatrix3D p=markerPoseMap.get(codearr[i]);
+                  PVector v = new PVector();
+                  v.x = p.m03 - pose_this.m03;
+                  v.y = p.m13 - pose_this.m13;
+                  v.z = p.m23 - pose_this.m23;
+                  float pLen = v.mag();
+                  if(pLen<mindis){
+                    mindis=pLen;
+                    minMarkerID=i;
+                  }
+              }
+              PMatrix3D pose_dest=markerPoseMap.get(codearr[minMarkerID]);
+
+              float angle = rotateToMarker(pose_this, pose_dest);
+              float dis=distanceM(pose_dest,pose_this);
+              float angle1 = rotateToMarker(pose_dest, pose_target);
+              float dArr=distanceM(pose_dest,pose_target);
+
+              if(stop==0){
+                pos.x = frameCnt * dis / totalFrame;
+                //pos.z = disVector.z*frameCnt;
+                pushMatrix();
+                  applyMatrix(pose_this);
+                  rotateZ(angle);
+                  rotateZ(160.3);
+                  translate(-pos.x, pos.y, pos.z);
+                  scale(0.001,0.001, 0.001);
+                  rotateX(180.5);
+                  shape(man);
+                  noStroke();
+                  fill(123, 123, 0);
+                  arrow();
+                popMatrix();
+                frameCnt++;
+                if (frameCnt == totalFrame) {
+                  pos = new PVector();
+                  frameCnt = 0;
+                  stop=1;
+                }
+              }
+              else{
+                posarr.x = frameArr * dArr / totalFrameArr;
+                //float ang= frameArr * anglez / totalFrameArr;
+                  pushMatrix();
+                    applyMatrix(pose_dest);
+                    rotateZ(angle1);
+                    rotateZ(160.5);
+                    scale(0.001,0.001, 0.001);
+                    rotateX(180.5);
+                    shape(man);
+                    translate(-1000*posarr.x, posarr.y, posarr.z);
+                    noStroke();
+                    fill(123, 123, 0);
+                    arrow();
+                  popMatrix();
+                  frameArr++;
+                if (frameArr == totalFrameArr) {
+                  posarr = new PVector();
+                  frameArr = 0;
+                  stop=0;
+                }
+              }
+          }
+        }
     }
 
   noFill();
